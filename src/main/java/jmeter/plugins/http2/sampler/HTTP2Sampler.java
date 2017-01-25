@@ -15,17 +15,13 @@
  */
 package jmeter.plugins.http2.sampler;
 
-import java.net.InetSocketAddress;
-import java.util.concurrent.Phaser;
-import java.util.concurrent.TimeUnit;
-
 import org.apache.jmeter.protocol.http.control.HeaderManager;
 import org.apache.jmeter.protocol.http.sampler.HTTPSamplerBase;
 import org.apache.jmeter.samplers.AbstractSampler;
 import org.apache.jmeter.samplers.Entry;
 import org.apache.jmeter.samplers.SampleResult;
 import org.apache.jmeter.testelement.TestElement;
-import org.apache.jmeter.testelement.property.*;
+import org.apache.jmeter.testelement.property.TestElementProperty;
 import org.apache.jorphan.logging.LoggingManager;
 import org.apache.log.Logger;
 
@@ -70,8 +66,7 @@ public class HTTP2Sampler extends AbstractSampler {
             super.addTestElement(el);
         }
     }
-
-    @Override
+    
     public SampleResult sample(Entry e)
     {
         log.debug("sample()");
@@ -80,7 +75,7 @@ public class HTTP2Sampler extends AbstractSampler {
         HeaderManager headerManager = (HeaderManager)getProperty(HTTPSamplerBase.HEADER_MANAGER).getObjectValue();
 
         // Send H2 request
-        NettyHttp2Client client = new NettyHttp2Client(getMethod(), getDomain(), getPort(), getPath(), headerManager);
+        OkHttp2Client client = new OkHttp2Client(getMethod(), "https", getDomain(), getPort(), getPath(), headerManager);
         SampleResult res = client.request();
         res.setSampleLabel(getName());
 

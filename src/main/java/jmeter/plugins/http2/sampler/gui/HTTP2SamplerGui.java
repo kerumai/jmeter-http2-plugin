@@ -62,13 +62,11 @@ public class HTTP2SamplerGui extends AbstractSamplerGui {
     public String getStaticLabel() {
         return "HTTP2 Sampler";
     }
-
-    @Override
+    
     public String getLabelResource() {
         return "HTTP2 Sampler";
     }
-
-    @Override
+    
     public TestElement createTestElement() {
         HTTP2Sampler sampler = new HTTP2Sampler();
 
@@ -82,16 +80,15 @@ public class HTTP2SamplerGui extends AbstractSamplerGui {
         super.configure(element);
 
         HTTP2Sampler sampler = (HTTP2Sampler)element;
-        /* method.setText(sampler.getMethod()); */
+        method.setText(sampler.getMethod());
         domain.setText(sampler.getDomain());
         port.setText(String.valueOf(sampler.getPort()));
         path.setText(sampler.getPath());
     }
-
-    @Override
+    
     public void modifyTestElement(TestElement element) {
         configureTestElement(element);
-        /* element.setProperty(HTTP2Sampler.METHOD, method.getText()); */
+        //element.setProperty(HTTP2Sampler.METHOD, method.getText());
         element.setProperty(HTTP2Sampler.METHOD, HTTP2Sampler.DEFAULT_METHOD);
         element.setProperty(HTTP2Sampler.DOMAIN, domain.getText());
         element.setProperty(HTTP2Sampler.PORT, port.getText());
