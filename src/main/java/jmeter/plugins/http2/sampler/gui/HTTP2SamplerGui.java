@@ -1,153 +1,243 @@
 /*
- *  Copyright 2015 Ryo Okubo
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
- *  Licensed under the Apache License, Version 2.0 (the "License");
- *  you may not use this file except in compliance with the License.
- *  You may obtain a copy of the License at
+ *   http://www.apache.org/licenses/LICENSE-2.0
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  *
- *  Unless required by applicable law or agreed to in writing, software
- *  distributed under the License is distributed on an "AS IS" BASIS,
- *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- *  See the License for the specific language governing permissions and
- *  limitations under the License.
  */
 package jmeter.plugins.http2.sampler.gui;
 
 import jmeter.plugins.http2.sampler.HTTP2Sampler;
-
-import java.awt.BorderLayout;
-import java.awt.Component;
-
-import javax.swing.JLabel;
-import javax.swing.JPanel;
-import javax.swing.JTextField;
-import javax.swing.BoxLayout;
-
 import org.apache.jmeter.gui.util.HorizontalPanel;
+import org.apache.jmeter.gui.util.VerticalPanel;
+import org.apache.jmeter.protocol.http.config.gui.MultipartUrlConfigGui;
+import org.apache.jmeter.protocol.http.sampler.HTTPSamplerBase;
 import org.apache.jmeter.samplers.gui.AbstractSamplerGui;
 import org.apache.jmeter.testelement.TestElement;
-import org.apache.jorphan.gui.JLabeledChoice;
-import org.apache.jorphan.logging.LoggingManager;
-import org.apache.log.Logger;
+import org.apache.jmeter.util.JMeterUtils;
 
-public class HTTP2SamplerGui extends AbstractSamplerGui {
+import javax.swing.*;
+import java.awt.*;
+import java.awt.event.ItemEvent;
+import java.awt.event.ItemListener;
 
-    private static final Logger log = LoggingManager.getLoggerForClass();
+public class HTTP2SamplerGui extends AbstractSamplerGui
+{
+    private static final long serialVersionUID = 240L;
 
-    private JLabeledChoice method;
-    private JTextField domain;
-    private JTextField port;
-    private JTextField path;
+    private static final Font FONT_SMALL = new Font("SansSerif", Font.PLAIN, 12);
 
-    public HTTP2SamplerGui(){
-        super();
+    private MultipartUrlConfigGui urlConfigGui;
 
-        setLayout(new BorderLayout(0, 5));
-        setBorder(makeBorder());
+    private JCheckBox getImages;
 
-        this.add(makeTitlePanel(), BorderLayout.NORTH);
+    private JCheckBox concurrentDwn;
 
-        JPanel webRequestPanel = new JPanel();
-        webRequestPanel.setLayout(new BorderLayout());
+    private JTextField concurrentPool;
 
-        webRequestPanel.add(getWebServerPanel(), BorderLayout.NORTH);
-        webRequestPanel.add(getPathPanel(), BorderLayout.CENTER);
+    private JCheckBox isMon;
 
-        this.add(webRequestPanel, BorderLayout.CENTER);
+    private JCheckBox useMD5;
+
+    private JLabel labelEmbeddedRE = new JLabel(JMeterUtils.getResString("web_testing_embedded_url_pattern")); // $NON-NLS-1$
+
+    private JTextField embeddedRE; // regular expression used to match against embedded resource URLs
+
+    public HTTP2SamplerGui() {
+        init();
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public void configure(TestElement element) {
+        super.configure(element);
+        final HTTPSamplerBase samplerBase = (HTTPSamplerBase) element;
+        urlConfigGui.configure(element);
+        getImages.setSelected(samplerBase.isImageParser());
+        concurrentDwn.setSelected(samplerBase.isConcurrentDwn());
+        concurrentPool.setText(samplerBase.getConcurrentPool());
+        isMon.setSelected(samplerBase.isMonitor());
+        useMD5.setSelected(samplerBase.useMD5());
+        embeddedRE.setText(samplerBase.getEmbeddedUrlRE());
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    public TestElement createTestElement() {
+        HTTPSamplerBase sampler = new HTTP2Sampler();
+        modifyTestElement(sampler);
+        return sampler;
+    }
+
+    /**
+     * Modifies a given TestElement to mirror the data in the gui components.
+     * <p>
+     * {@inheritDoc}
+     */
+    public void modifyTestElement(TestElement sampler) {
+        sampler.clear();
+        urlConfigGui.modifyTestElement(sampler);
+        final HTTPSamplerBase samplerBase = (HTTPSamplerBase) sampler;
+        samplerBase.setImageParser(getImages.isSelected());
+        enableConcurrentDwn(getImages.isSelected());
+        samplerBase.setConcurrentDwn(concurrentDwn.isSelected());
+        samplerBase.setConcurrentPool(concurrentPool.getText());
+        samplerBase.setMonitor(isMon.isSelected());
+        samplerBase.setMD5(useMD5.isSelected());
+        samplerBase.setEmbeddedUrlRE(embeddedRE.getText());
+
+        this.configureTestElement(sampler);
     }
 
     @Override
     public String getStaticLabel() {
-        return "HTTP2 Sampler";
+        return "HTTP/2 OkHttp Sample";
     }
-    
+
     public String getLabelResource() {
-        return "HTTP2 Sampler";
-    }
-    
-    public TestElement createTestElement() {
-        HTTP2Sampler sampler = new HTTP2Sampler();
-
-        modifyTestElement(sampler);
-
-        return sampler;
+        return "HTTP/2 OkHttp Sample";
     }
 
+    private void init() {// called from ctor, so must not be overridable
+        setLayout(new BorderLayout(0, 5));
+        setBorder(makeBorder());
+
+        add(makeTitlePanel(), BorderLayout.NORTH);
+
+        // URL CONFIG
+        urlConfigGui = new MultipartUrlConfigGui(true, false);
+        add(urlConfigGui, BorderLayout.CENTER);
+
+        // Bottom (embedded resources, source address and optional tasks)
+        JPanel bottomPane = new VerticalPanel();
+        bottomPane.add(createEmbeddedRsrcPanel());
+        JPanel optionAndSourcePane = new HorizontalPanel();
+        optionAndSourcePane.add(createSourceAddrPanel());
+        optionAndSourcePane.add(createOptionalTasksPanel());
+        bottomPane.add(optionAndSourcePane);
+        add(bottomPane, BorderLayout.SOUTH);
+    }
+
+    protected JPanel createEmbeddedRsrcPanel() {
+        final JPanel embeddedRsrcPanel = new VerticalPanel();
+        embeddedRsrcPanel.setBorder(BorderFactory.createTitledBorder(BorderFactory.createEtchedBorder(), JMeterUtils
+                .getResString("web_testing_retrieve_title"))); // $NON-NLS-1$
+
+        final JPanel checkBoxPanel = new HorizontalPanel();
+        // RETRIEVE IMAGES
+        getImages = new JCheckBox(JMeterUtils.getResString("web_testing_retrieve_images")); // $NON-NLS-1$
+        getImages.setFont(FONT_SMALL);
+        // add a listener to activate or not concurrent dwn.
+        getImages.addItemListener(new ItemListener() {
+            public void itemStateChanged(final ItemEvent e) {
+                if (e.getStateChange() == ItemEvent.SELECTED) { enableConcurrentDwn(true); }
+                else { enableConcurrentDwn(false); }
+            }
+        });
+        // Download concurrent resources
+        concurrentDwn = new JCheckBox(JMeterUtils.getResString("web_testing_concurrent_download")); // $NON-NLS-1$
+        concurrentDwn.setFont(FONT_SMALL);
+        concurrentDwn.addItemListener(new ItemListener() {
+            public void itemStateChanged(final ItemEvent e) {
+                if (getImages.isSelected() && e.getStateChange() == ItemEvent.SELECTED) { concurrentPool.setEnabled(true); }
+                else { concurrentPool.setEnabled(false); }
+            }
+        });
+        concurrentPool = new JTextField(2); // 2 column size
+        concurrentPool.setFont(FONT_SMALL);
+        concurrentPool.setMaximumSize(new Dimension(30,20));
+
+        checkBoxPanel.add(getImages);
+        checkBoxPanel.add(concurrentDwn);
+        checkBoxPanel.add(concurrentPool);
+        embeddedRsrcPanel.add(checkBoxPanel);
+
+        // Embedded URL match regex
+        labelEmbeddedRE.setFont(FONT_SMALL);
+        checkBoxPanel.add(labelEmbeddedRE);
+        embeddedRE = new JTextField(10);
+        checkBoxPanel.add(embeddedRE);
+        embeddedRsrcPanel.add(checkBoxPanel);
+
+        return embeddedRsrcPanel;
+    }
+
+    protected JPanel createOptionalTasksPanel() {
+        // OPTIONAL TASKS
+        final JPanel checkBoxPanel = new HorizontalPanel();
+        checkBoxPanel.setBorder(BorderFactory.createTitledBorder(BorderFactory.createEtchedBorder(), JMeterUtils
+                .getResString("optional_tasks"))); // $NON-NLS-1$
+
+        // Is monitor
+        isMon = new JCheckBox(JMeterUtils.getResString("monitor_is_title")); // $NON-NLS-1$
+        isMon.setFont(FONT_SMALL);
+        // Use MD5
+        useMD5 = new JCheckBox(JMeterUtils.getResString("response_save_as_md5")); // $NON-NLS-1$
+        useMD5.setFont(FONT_SMALL);
+
+        checkBoxPanel.add(isMon);
+        checkBoxPanel.add(useMD5);
+
+        return checkBoxPanel;
+    }
+
+    protected JPanel createSourceAddrPanel() {
+        final JPanel sourceAddrPanel = new HorizontalPanel();
+        sourceAddrPanel.setBorder(BorderFactory.createTitledBorder(BorderFactory.createEtchedBorder(), JMeterUtils
+                .getResString("web_testing_source_ip"))); // $NON-NLS-1$
+        return sourceAddrPanel;
+    }
+
+    /**
+     * {@inheritDoc}
+     */
     @Override
-    public void configure(TestElement element) {
-        super.configure(element);
-
-        HTTP2Sampler sampler = (HTTP2Sampler)element;
-        method.setText(sampler.getMethod());
-        domain.setText(sampler.getDomain());
-        port.setText(String.valueOf(sampler.getPort()));
-        path.setText(sampler.getPath());
-    }
-    
-    public void modifyTestElement(TestElement element) {
-        configureTestElement(element);
-        //element.setProperty(HTTP2Sampler.METHOD, method.getText());
-        element.setProperty(HTTP2Sampler.METHOD, HTTP2Sampler.DEFAULT_METHOD);
-        element.setProperty(HTTP2Sampler.DOMAIN, domain.getText());
-        element.setProperty(HTTP2Sampler.PORT, port.getText());
-        element.setProperty(HTTP2Sampler.PATH, path.getText());
+    public Dimension getPreferredSize() {
+        return getMinimumSize();
     }
 
-    private final JPanel getWebServerPanel() {
-        JPanel webServerPanel = new HorizontalPanel();
-
-        final JPanel domainPanel = getDomainPanel();
-        final JPanel portPanel = getPortPanel();
-
-        webServerPanel.add(domainPanel, BorderLayout.CENTER);
-        webServerPanel.add(portPanel, BorderLayout.EAST);
-
-        return webServerPanel;
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public void clearGui() {
+        super.clearGui();
+        getImages.setSelected(false);
+        concurrentDwn.setSelected(false);
+        concurrentPool.setText(String.valueOf(HTTPSamplerBase.CONCURRENT_POOL_SIZE));
+        enableConcurrentDwn(false);
+        isMon.setSelected(false);
+        useMD5.setSelected(false);
+        urlConfigGui.clear();
+        embeddedRE.setText(""); // $NON-NLS-1$
     }
 
-    private final JPanel getDomainPanel() {
-        domain = new JTextField(20);
-
-        JLabel label = new JLabel("Domain");
-        label.setLabelFor(domain);
-
-        JPanel panel = new JPanel(new BorderLayout(5, 0));
-        panel.add(label, BorderLayout.WEST);
-        panel.add(domain, BorderLayout.CENTER);
-
-        return panel;
+    private void enableConcurrentDwn(boolean enable) {
+        if (enable) {
+            concurrentDwn.setEnabled(true);
+            labelEmbeddedRE.setEnabled(true);
+            embeddedRE.setEnabled(true);
+            if (concurrentDwn.isSelected()) {
+                concurrentPool.setEnabled(true);
+            }
+        } else {
+            concurrentDwn.setEnabled(false);
+            concurrentPool.setEnabled(false);
+            labelEmbeddedRE.setEnabled(false);
+            embeddedRE.setEnabled(false);
+        }
     }
-
-    private final JPanel getPortPanel() {
-        port = new JTextField(10);
-
-        JLabel label = new JLabel("Port");
-        label.setLabelFor(port);
-
-        JPanel panel = new JPanel(new BorderLayout(5, 0));
-        panel.add(label, BorderLayout.WEST);
-        panel.add(port, BorderLayout.CENTER);
-
-        return panel;
-    }
-
-    private final JPanel getPathPanel() {
-        path = new JTextField(15);
-
-        JLabel label = new JLabel("Path");
-        label.setLabelFor(path);
-
-        JPanel pathPanel = new HorizontalPanel();
-        pathPanel.add(label);
-        pathPanel.add(path);
-
-        JPanel panel = new JPanel();
-        panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
-        panel.add(pathPanel);
-
-        return panel;
-    }
-
 }

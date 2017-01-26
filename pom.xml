@@ -9,22 +9,50 @@
   <name>HTTP/2 Sampler as JMeter plugin</name>
 
   <dependencies>
+
     <dependency>
       <groupId>org.apache.jmeter</groupId>
-      <artifactId>ApacheJMeter_core</artifactId>
+      <artifactId>ApacheJMeter</artifactId>
       <version>2.13</version>
+
+      <exclusions>
+        <exclusion>
+          <artifactId>commons-math3</artifactId>
+          <groupId>commons-math3</groupId>
+        </exclusion>
+        <exclusion>
+          <artifactId>commons-pool2</artifactId>
+          <groupId>commons-pool2</groupId>
+        </exclusion>
+      </exclusions>
     </dependency>
 
     <dependency>
       <groupId>org.apache.jmeter</groupId>
       <artifactId>ApacheJMeter_http</artifactId>
       <version>2.13</version>
-    </dependency>    
+
+      <exclusions>
+        <exclusion>
+          <artifactId>commons-math3</artifactId>
+          <groupId>commons-math3</groupId>
+        </exclusion>
+        <exclusion>
+          <artifactId>commons-pool2</artifactId>
+          <groupId>commons-pool2</groupId>
+        </exclusion>
+      </exclusions>
+    </dependency>
 
     <dependency>
-      <groupId>org.apache.jmeter</groupId>
-      <artifactId>jorphan</artifactId>
-      <version>2.13</version>
+      <groupId>org.apache.commons</groupId>
+      <artifactId>commons-math3</artifactId>
+      <version>3.4.1</version>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.commons</groupId>
+      <artifactId>commons-pool2</artifactId>
+      <version>2.3</version>
     </dependency>
 
     <dependency>

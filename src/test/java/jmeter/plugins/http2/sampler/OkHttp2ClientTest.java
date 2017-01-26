@@ -7,11 +7,10 @@ public class OkHttp2ClientTest
 {
     public static void main(String[] args)
     {
+        HeaderManager hm = new HeaderManager();
+        OkHttp2Client client = new OkHttp2Client("get", "https", "apis.netflix.com", 443, "/account/geo", hm);
         try {
-            HeaderManager hm = new HeaderManager();
-            OkHttp2Client client = new OkHttp2Client("get", "https", "apis.netflix.com", 443, "/account/geo", hm);
-
-            int count = 10;
+            int count = 25;
             for (int i=0; i<count; i++) {
                 System.out.println("Making request - " + i);
                 SampleResult result = client.request();
@@ -23,6 +22,8 @@ public class OkHttp2ClientTest
         catch (Exception e) {
             e.printStackTrace();
         }
-
+        finally {
+            client.shutdown();
+        }
     }
 }

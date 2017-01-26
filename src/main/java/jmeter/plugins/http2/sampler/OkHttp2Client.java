@@ -1,66 +1,78 @@
 package jmeter.plugins.http2.sampler;
 
 import okhttp3.*;
+import org.apache.commons.lang3.StringUtils;
+import org.apache.jmeter.protocol.http.control.Header;
 import org.apache.jmeter.protocol.http.control.HeaderManager;
-import org.apache.jmeter.samplers.SampleResult;
-import org.apache.jmeter.testelement.property.JMeterProperty;
-import org.apache.jmeter.testelement.property.PropertyIterator;
+import org.apache.jmeter.protocol.http.sampler.HTTPSampleResult;
+import org.apache.jorphan.logging.LoggingManager;
+import org.apache.log.Logger;
+
 
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 public class OkHttp2Client
 {
-    private final String method;
-    private final String scheme;
-    private final String host;
-    private final int port;
-    private final String path;
-    private final HeaderManager headerManager;
+    private static final Logger LOG = LoggingManager.getLoggerForClass();
 
     private final OkHttpClient client;
+
+    private final int connectTimeout = 2500;
+    private final int readTimeout = 10000;
+    private final int writeTimeout = 5000;
     
 
-    public OkHttp2Client(String method, String scheme, String host, int port, String path, HeaderManager headerManager) 
+    public OkHttp2Client()
     {
-        this.method = method;
-        this.scheme = scheme;
-        this.host = host;
-        this.port = port;
-        this.path = path;
-        this.headerManager = headerManager;
-
         List<ConnectionSpec> connSpecs = new ArrayList<ConnectionSpec>();
         connSpecs.add(ConnectionSpec.MODERN_TLS);
-        
+
         List<Protocol> protocols = new ArrayList<Protocol>();
         protocols.add(Protocol.HTTP_2);
         protocols.add(Protocol.HTTP_1_1);
-        
+
         client = new OkHttpClient.Builder()
                 .connectionSpecs(connSpecs)
                 .protocols(protocols)
+                .connectTimeout(connectTimeout, TimeUnit.MILLISECONDS)
+                .readTimeout(readTimeout, TimeUnit.MILLISECONDS)
+                .writeTimeout(writeTimeout, TimeUnit.MILLISECONDS)
                 .build();
     }
 
-    public SampleResult request()
+    public void shutdown()
     {
-        SampleResult sampleResult = new SampleResult();
+        client.connectionPool().evictAll();
+        client.dispatcher().executorService().shutdown();
+    }
+
+    public HTTPSampleResult request(String method, String scheme, String host, int port, String path, HeaderManager headerManager)
+    {
+        LOG.debug(String.format("REQUEST: method=%s, scheme=%s, host=%s, port=%s, path=%s", method, scheme, host, port, path));
+
+        HTTPSampleResult sampleResult = new HTTPSampleResult();
         sampleResult.sampleStart();
 
-        HttpUrl url = new HttpUrl.Builder().scheme(scheme).host(host).port(port).encodedPath(path).build();
+        HttpUrl.Builder urlBuilder = new HttpUrl.Builder();
+        if (path != null) urlBuilder = urlBuilder.encodedPath(path);
+        HttpUrl url = urlBuilder.scheme(scheme).host(host).port(port).build();
+
         sampleResult.setURL(url.url());
+        sampleResult.setHTTPMethod(method);
 
+        // Setup the request headers.
         Headers.Builder headersBuilder = new Headers.Builder();
-
-        PropertyIterator headerItr = headerManager.getHeaders().iterator();
-        while (headerItr.hasNext()) {
-            JMeterProperty prop = headerItr.next();
-            String name = prop.getName();
-            String value = prop.getStringValue();
-            headersBuilder.add(name, value);
+        for (int i=0; i<headerManager.size(); i++) {
+            Header hdr = headerManager.get(i);
+            String name = hdr.getName();
+            String value = hdr.getValue();
+            if (StringUtils.isNotEmpty(name) && StringUtils.isNotEmpty(value)) {
+                headersBuilder.add(name, value);
+            }
         }
         
         Request request = new Request.Builder()
@@ -69,13 +81,16 @@ public class OkHttp2Client
                 .headers(headersBuilder.build())
                 .build();
 
+        // Execute the request.
         try {
             Response response = client.newCall(request).execute();
             sampleResult.setSuccessful(true);
-            
+
             sampleResult.setResponseCode(String.valueOf(response.code()));
             sampleResult.setResponseMessage(response.message());
             sampleResult.setResponseHeaders(getResponseHeadersAsString(response));
+
+            response.close();
         }
         catch (IOException e) {
             sampleResult.setSuccessful(false);
