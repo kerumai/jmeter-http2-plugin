@@ -8,8 +8,12 @@ import org.apache.jmeter.protocol.http.sampler.HTTPSampleResult;
 import org.apache.jorphan.logging.LoggingManager;
 import org.apache.log.Logger;
 
-
+import javax.net.ssl.HostnameVerifier;
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLSession;
+import javax.net.ssl.X509TrustManager;
 import java.io.IOException;
+import java.security.cert.CertificateException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -29,19 +33,63 @@ public class OkHttp2Client
     public OkHttp2Client()
     {
         List<ConnectionSpec> connSpecs = new ArrayList<ConnectionSpec>();
-        connSpecs.add(ConnectionSpec.MODERN_TLS);
+        connSpecs.add(new ConnectionSpec.Builder(ConnectionSpec.COMPATIBLE_TLS).allEnabledCipherSuites().allEnabledTlsVersions().build());
+        connSpecs.add(ConnectionSpec.CLEARTEXT);
 
         List<Protocol> protocols = new ArrayList<Protocol>();
         protocols.add(Protocol.HTTP_2);
         protocols.add(Protocol.HTTP_1_1);
 
-        client = new OkHttpClient.Builder()
+        OkHttpClient.Builder builder = new OkHttpClient.Builder()
                 .connectionSpecs(connSpecs)
                 .protocols(protocols)
                 .connectTimeout(connectTimeout, TimeUnit.MILLISECONDS)
                 .readTimeout(readTimeout, TimeUnit.MILLISECONDS)
                 .writeTimeout(writeTimeout, TimeUnit.MILLISECONDS)
-                .build();
+              ;
+
+        builder = trustAllSslCerts(builder);
+
+        client = builder.build();
+    }
+
+    private OkHttpClient.Builder trustAllSslCerts(OkHttpClient.Builder builder)
+    {
+        // Create a trust manager that does not validate certificate chains
+        X509TrustManager[] trustAllCerts = new X509TrustManager[] {
+                new X509TrustManager() {
+                    public void checkClientTrusted(java.security.cert.X509Certificate[] chain, String authType) throws CertificateException {
+                    }
+                    public void checkServerTrusted(java.security.cert.X509Certificate[] chain, String authType) throws CertificateException {
+                    }
+                    public java.security.cert.X509Certificate[] getAcceptedIssuers() {
+                        return new java.security.cert.X509Certificate[]{};
+                    }
+                }
+        };
+
+        // Install the all-trusting trust manager
+        final SSLContext sslContext;
+        try {
+            sslContext = SSLContext.getInstance("SSL");
+            sslContext.init(null, trustAllCerts, new java.security.SecureRandom());
+        }
+        catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+
+        builder = builder.sslSocketFactory(sslContext.getSocketFactory(), trustAllCerts[0]);
+
+        // Don't verify hostname matches the ssl cert.
+        builder = builder.hostnameVerifier(new HostnameVerifier()
+        {
+            public boolean verify(String s, SSLSession sslSession)
+            {
+                return true;
+            }
+        });
+
+        return builder;
     }
 
     public void shutdown()
@@ -84,6 +132,9 @@ public class OkHttp2Client
         // Execute the request.
         try {
             Response response = client.newCall(request).execute();
+
+            LOG.debug("Received response: status=" + response.code() + ", response=" + response.toString());
+
             sampleResult.setSuccessful(true);
 
             sampleResult.setResponseCode(String.valueOf(response.code()));
@@ -93,6 +144,7 @@ public class OkHttp2Client
             response.close();
         }
         catch (IOException e) {
+            LOG.debug("IOEXception executing request. ", e);
             sampleResult.setSuccessful(false);
         }
 
