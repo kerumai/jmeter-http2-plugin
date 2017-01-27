@@ -51,6 +51,8 @@ public class OkHttp2Client
         builder = trustAllSslCerts(builder);
 
         client = builder.build();
+
+        LOG.info("Inititalized new OkHttpClient.");
     }
 
     private OkHttpClient.Builder trustAllSslCerts(OkHttpClient.Builder builder)
@@ -131,9 +133,11 @@ public class OkHttp2Client
 
         // Execute the request.
         try {
+            long startTime = System.currentTimeMillis();
             Response response = client.newCall(request).execute();
 
-            LOG.debug("Received response: status=" + response.code() + ", response=" + response.toString());
+            long duration = System.currentTimeMillis() - startTime;
+            LOG.debug("Received response: status=" + response.code() + ", duration=" + duration + ", response=" + response.toString());
 
             sampleResult.setSuccessful(true);
 
