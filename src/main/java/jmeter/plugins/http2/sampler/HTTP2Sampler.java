@@ -6,12 +6,11 @@ import org.apache.jmeter.samplers.Interruptible;
 
 public class HTTP2Sampler extends HTTPSamplerBase implements Interruptible
 {
-    private final OkHttp2Client client;
+    private static final OkHttp2Client client = new OkHttp2Client();
 
     public HTTP2Sampler() {
         super();
         setName("HTTP2 OkHttp Sampler");
-        client = new OkHttp2Client();
     }
 
     public boolean interrupt()
@@ -24,8 +23,6 @@ public class HTTP2Sampler extends HTTPSamplerBase implements Interruptible
     
     public HTTPSampleResult sample(java.net.URL url, String method, boolean followRedirects, int depth)
     {
-
-
         HTTPSampleResult res = client.request(getMethod(), getProtocol(), getDomain(), getPort(), getPath(), getHeaderManager());
         res.setSampleLabel(getName());
 

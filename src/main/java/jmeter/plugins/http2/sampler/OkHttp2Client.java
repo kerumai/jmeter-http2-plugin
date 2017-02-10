@@ -40,8 +40,11 @@ public class OkHttp2Client
         protocols.add(Protocol.HTTP_2);
         protocols.add(Protocol.HTTP_1_1);
 
+        ConnectionPool connPool = new ConnectionPool(5, 10, TimeUnit.SECONDS);
+
         OkHttpClient.Builder builder = new OkHttpClient.Builder()
                 .connectionSpecs(connSpecs)
+                .connectionPool(connPool)
                 .protocols(protocols)
                 .connectTimeout(connectTimeout, TimeUnit.MILLISECONDS)
                 .readTimeout(readTimeout, TimeUnit.MILLISECONDS)
@@ -148,7 +151,7 @@ public class OkHttp2Client
             response.close();
         }
         catch (IOException e) {
-            LOG.debug("IOEXception executing request. ", e);
+            LOG.debug("IOEXception executing request. url = " + String.valueOf(url), e);
             sampleResult.setSuccessful(false);
         }
 
